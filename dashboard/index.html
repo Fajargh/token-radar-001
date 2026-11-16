@@ -10,7 +10,7 @@
 <header class="topbar">
   <div class="wrap topbar-in">
     <div class="brand"><span class="dot" aria-hidden="true"></span> Token Radar</div>
-    <div class="topmeta" id="topmeta">Snapshot 2026-11-14 &middot; DefiLlama protocol index &middot; model radar-2</div>
+    <div class="topmeta" id="topmeta">Snapshot 2026-11-14 &middot; DefiLlama protocol index &middot; model radar-3</div>
   </div>
 </header>
 
@@ -18,11 +18,14 @@
   <section class="hero">
     <h1 id="headline">Pre-token protocols, ranked by implied value</h1>
     <p class="lede">Every protocol in the DefiLlama snapshot that records no token, ranked by what its
-    launch would be worth if the market paid it what it pays live protocols of the same kind.
-    The watchlist is the floor &mdash; every protocol with at least $50M of TVL and no token on
-    record &mdash; and the early radar adds every smaller pre-token protocol that passes the same
-    exclusion rule. Implied value is a model, not a promise, and never a prediction that a token
-    will be issued.</p>
+    launch would be worth if the market paid it what it pays traded protocols of its size. The
+    price comes from a curve fitted to the traded tokens themselves &mdash; market cap against
+    TVL, in logs &mdash; and the curve is backtested out of sample, so the board states how far
+    its own predictions usually miss. The watchlist is the floor &mdash; every protocol with at
+    least $50M of TVL and no token on record &mdash; and the early radar adds every smaller
+    pre-token protocol that passes the same exclusion rule, plus the twenty above the floor the
+    watchlist leaves out, flagged as such. Implied value is a model, not a promise, and never a
+    prediction that a token will be issued.</p>
     <div class="kpis" id="kpis" aria-label="Board summary"></div>
   </section>
 
@@ -52,6 +55,7 @@
         <option value="tvl">TVL</option>
         <option value="growth">7-day growth</option>
         <option value="age">Age with no token</option>
+        <option value="farmcost">Farm cost (cheapest first)</option>
         <option value="name">Name A&ndash;Z</option>
       </select>
     </label>
@@ -73,8 +77,9 @@
             <th data-sort="tvl" class="num">TVL</th>
             <th data-sort="growth" class="num">7d</th>
             <th data-sort="age" class="num">Age</th>
-            <th class="num">Multiple</th>
+            <th class="num">Curve value</th>
             <th data-sort="rank" class="num">Implied value</th>
+            <th data-sort="farmcost" class="num">Farm net</th>
             <th class="num">Token</th>
           </tr>
         </thead>
@@ -85,30 +90,83 @@
 
   <section class="method" id="method">
     <h2>How the ranking works</h2>
-    <p><strong>Implied value = TVL &times; comps multiple &times; growth &times; maturity &times; breadth.</strong>
-    The multiple is what the market pays per dollar of TVL for this kind of protocol: the median
-    market-cap-to-TVL ratio of the live-token protocols in the same category, winsorised to
-    [0.02, 1.00] and shrunk toward the global median <span id="globmed">&hellip;</span> with k = 4, so one outlier comp cannot
-    set a category&rsquo;s price; a category with no live comps takes the global median. Growth is
+    <p><strong>Implied value = curve value &times; growth &times; maturity &times; breadth.</strong>
+    The curve value is what the fitted size curve predicts for the protocol&rsquo;s TVL:
+    log<sub>10</sub>(market cap) = <span id="curveA">&hellip;</span> + <span id="curveB">&hellip;</span>
+    &times; log<sub>10</sub>(TVL), fitted by least squares on <span id="curveN">&hellip;</span> traded
+    tokens, R&sup2; = <span id="curveR2">&hellip;</span>. A protocol twice as big is not worth twice
+    as much: the slope is below one, so the curve pays less per TVL dollar as TVL grows. Growth is
     the 7-day TVL change clamped to [&minus;50%, +100%] at half weight. Maturity rises with how
     long the protocol has run with no token, from 0.60 at launch to 1.00 at three years. Breadth
     adds 2% per extra chain, at most +10%. The same function scores every row; no name is ever
-    special-cased. The table below is computed from the snapshot at run time.</p>
+    special-cased.</p>
+
+    <h3>The curve and its comparables</h3>
+    <p>The comparables are the traded tokens the curve may learn from: live-token protocols with
+    a positive market cap and TVL, a category, and no excluded shape &mdash; no bridge, canonical
+    bridge, liquid-staking, liquid-restaking, restaked-BTC, CEX or chain product; no version
+    marker in the name; no whole word <em>wrapped</em>, <em>staked</em> or <em>staking</em>; not
+    named after an exchange. That is <span id="curveClean">&hellip;</span> protocols. A comp is
+    kept when its market-cap-to-TVL ratio lies within one decade of the comps&rsquo; median ratio
+    (<span id="medRatio">&hellip;</span>&times;, so the band is <span id="curveBand">&hellip;</span>):
+    <span id="curveKept">&hellip;</span> are kept and <span id="curveSetAside">&hellip;</span> are
+    set aside as outliers and named below. The band is a mechanical rule from the data&rsquo;s own
+    median, not a hand-picked range: a parent token&rsquo;s market cap carried on a sub-protocol,
+    or pass-through staked assets counted as TVL, puts a multiple orders of magnitude from the
+    pack, and such a comp is not comparable.</p>
+    <div class="chartcard" id="curveChart" aria-label="Size curve scatter"></div>
     <div class="tablewrap">
       <table id="comps">
-        <thead><tr><th>Category</th><th class="num">Live comps</th><th class="num">Raw median mcap/TVL</th><th class="num">Multiple used</th></tr></thead>
+        <thead><tr><th>Category</th><th class="num">Kept comps</th><th class="num">Median mcap/TVL</th></tr></thead>
         <tbody id="compsRows"></tbody>
       </table>
     </div>
+    <p class="subnote">The table is descriptive: the curve, not the category, prices the board.
+    Categories differ &mdash; Basis Trading trades near 0.48&times; TVL, Lending near 0.15&times;
+    &mdash; but with so few comps per category, a per-category curve would overfit; the
+    backtest below is what says the single curve earns its place.</p>
+
+    <h3>The backtest: how far the curve usually misses</h3>
+    <p>Every number below is computed from the snapshot at run time, by refitting the band and
+    the curve from scratch for each held-out protocol. The median factor is the typical miss:
+    a leave-one-out median of &times;2.67 means half the held-out tokens are predicted within
+    2.67&times; of their actual market cap, and half are further off. The curve is an estimate
+    with a stated error, not a precise price.</p>
+    <div class="tablewrap">
+      <table id="backtest">
+        <thead><tr><th>Test</th><th class="num">Protocols</th><th class="num">Median miss</th><th class="num">Within 2&times;</th><th class="num">Within 3&times;</th><th>What it means</th></tr></thead>
+        <tbody id="backtestRows"></tbody>
+      </table>
+    </div>
+
+    <h3>Farm plans, costed to the dollar</h3>
+    <p>Each protocol&rsquo;s plan has six steps, each with what it costs in dollars and how long
+    it takes. The cost is gas plus any fee the action itself charges, at the assumed
+    per-transaction prices below; the capital deployed is shown separately, because it is
+    returned when the position is unwound, not spent. The plan&rsquo;s net cost is the
+    out-of-pocket total. Gas prices are estimates, not snapshot facts.</p>
+    <div class="tablewrap">
+      <table id="gas">
+        <thead><tr><th>Chain</th><th class="num">Gas per transaction</th></tr></thead>
+        <tbody id="gasRows"></tbody>
+      </table>
+    </div>
+
     <h3>Who is on the board, and who is not</h3>
-    <p>On the board: the 40 watchlist protocols, plus every pre-token protocol below the $50M
-    floor that passes the exclusion rule in full &mdash; not a bridge, canonical bridge,
-    liquid-staking, liquid-restaking, restaked-BTC or CEX product, no version marker in the name,
-    no whole word <em>wrapped</em>, <em>staked</em> or <em>staking</em>, and not named after an
-    exchange. Twenty protocols above the floor pass the visible checks yet are absent from the
-    house watchlist: DefiLlama records a parent protocol for them, a field the snapshot does not
-    carry, so they are products of a protocol whose token already trades &mdash; the board does
-    not rank them as launches, and names them here instead of hiding them.</p>
+    <p>On the board: the 40 watchlist protocols, the 138 pre-token protocols below the $50M floor
+    that pass the exclusion rule, and 20 protocols above the floor that pass every check the
+    snapshot can show yet are absent from the house watchlist. The house&rsquo;s rule also uses
+    DefiLlama&rsquo;s parent-protocol field, which the snapshot does not carry, so the visible
+    record can neither confirm nor deny a parent for those twenty; they are ranked on the
+    visible record and flagged <em>off-watchlist, above floor</em> on their rows, so a reader
+    can weigh them. The field guide says a protocol the list leaves out is no worse a subject
+    than one on it.</p>
+    <div class="tablewrap">
+      <table id="setaside">
+        <thead><tr><th>Set aside from the curve</th><th class="num">mcap/TVL</th><th>Why</th></tr></thead>
+        <tbody id="setAsideRows"></tbody>
+      </table>
+    </div>
     <div class="tablewrap">
       <table id="excluded">
         <thead><tr><th>Left off the board</th><th>Category</th><th class="num">TVL</th><th>Why</th></tr></thead>
@@ -119,17 +177,19 @@
     <p>A protocol &ldquo;records no token&rdquo; when DefiLlama&rsquo;s record carries none for it;
     that is not proof it has none. An implied value is the entry&rsquo;s own claim about what a
     launch would be worth if the protocol&rsquo;s record stayed as it is &mdash; never a price,
-    never a promise that a token is coming, and never investment advice. Farming costs gas and
-    carries smart-contract risk; never pay to claim an airdrop, and claim only from the link the
+    never a promise that a token is coming, and never investment advice. The curve&rsquo;s
+    backtest says its typical prediction is off by a factor of about two and a half, so treat
+    every implied value as an order of magnitude, not a quote. Farming costs gas and carries
+    smart-contract risk; never pay to claim an airdrop, and claim only from the link the
     protocol itself publishes. Snapshot: DefiLlama <em>api.llama.fi/protocols</em>, fetched
-    2026-11-14. Model radar-2.</p>
+    2026-11-14. Model radar-3.</p>
   </section>
 </main>
 
 <aside id="detail" class="detail" aria-hidden="true" aria-label="Protocol detail"></aside>
 
 <footer class="wrap foot">
-  <p>Token Radar &middot; snapshot 2026-11-14 &middot; model radar-2 &middot; built for make.fun
+  <p>Token Radar &middot; snapshot 2026-11-14 &middot; model radar-3 &middot; built for make.fun
   &ldquo;Build the best token launch radar&rdquo; &middot; data: DefiLlama public API.</p>
 </footer>
 

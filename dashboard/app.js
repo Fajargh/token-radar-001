@@ -1,10 +1,10 @@
-/* Token Radar dashboard: renders window.RADAR (written by main.ts from the sealed snapshot).
+/* Token Radar dashboard (radar-3): renders window.RADAR (written by main.ts from the sealed snapshot).
    No network, no fetch: the data is the script the page loads beside it. Hash routes make the
    three views reproducible: #/protocol/<slug> opens a detail, #/filter/<category> filters. */
 (function () {
   'use strict';
   var D = window.RADAR;
-  if (!D) { document.getElementById('rows').innerHTML = '<tr><td colspan="8" class="empty">No radar data: run main.ts first.</td></tr>'; return; }
+  if (!D) { document.getElementById('rows').innerHTML = '<tr><td colspan="9" class="empty">No radar data: run main.ts first.</td></tr>'; return; }
 
   var $ = function (id) { return document.getElementById(id); };
   var rowsEl = $('rows'), boardEl = $('board'), detailEl = $('detail');
@@ -19,6 +19,7 @@
     return '$' + Math.round(n);
   }
   function moneyFull(n) { return '$' + Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+  function money2(n) { return '$' + n.toFixed(2); }
   function pct(n) {
     if (n === null || n === undefined) return '<span class="dim">—</span>';
     var cls = n > 0 ? 'pos' : n < 0 ? 'neg' : '';
@@ -54,18 +55,84 @@
     kpi('Board rows', String(D.board_size), D.early_size + ' early rows below the floor', false) +
     kpi('Total implied value', money(totalImplied), 'sum of all ' + D.board_size + ' rows', false) +
     kpi('Top implied value', money(top ? top.implied_value_usd : 0), top ? esc(top.name) : '', false) +
-    kpi('Categories', String(cats.length), 'with a comps multiple each', false) +
-    kpi('Live tokens set aside', String(D.live_size), 'shown at market value, never ranked', false);
+    kpi('Backtest, leave-one-out', '×' + D.backtest.loo.median_factor.toFixed(2), 'median miss; 5-fold ×' + D.backtest.cv5.median_factor.toFixed(2), false) +
+    kpi('Size curve R²', D.curve.r_squared.toFixed(2), D.curve.kept_n + ' traded comps fitted', false);
 
-  /* ---- comps + excluded tables (methodology) ---- */
+  /* ---- methodology numbers ---- */
+  function setText(id, v) { var el = $(id); if (el) el.textContent = v; }
+  setText('curveA', D.curve.intercept.toFixed(4));
+  setText('curveB', D.curve.slope.toFixed(4));
+  setText('curveR2', D.curve.r_squared.toFixed(3));
+  setText('curveN', String(D.curve.kept_n));
+  setText('curveClean', String(D.curve.clean_n));
+  setText('curveKept', String(D.curve.kept_n));
+  setText('curveSetAside', String(D.curve.set_aside_n));
+  setText('medRatio', D.curve.median_ratio.toFixed(3) + '×');
+  setText('curveBand', D.curve.band_lo.toFixed(3) + '× to ' + D.curve.band_hi.toFixed(2) + '×');
+
+  /* ---- comps, backtest, gas, set-aside and excluded tables ---- */
   $('compsRows').innerHTML = D.comps.map(function (c) {
     return '<tr><td>' + esc(c.category) + '</td><td class="num">' + c.comps_n + '</td><td class="num">' +
-      (c.raw_median === null ? '—' : c.raw_median.toFixed(3)) + '</td><td class="num"><b>' + c.multiple.toFixed(3) + '×</b></td></tr>';
-  }).join('') + '<tr><td><b>Global median (no live comps)</b></td><td class="num">—</td><td class="num">—</td><td class="num"><b>' + D.global_median.toFixed(3) + '×</b></td></tr>';
-  var gm = document.getElementById('globmed'); if (gm) gm.textContent = D.global_median.toFixed(3);
+      (c.raw_median === null ? '—' : c.raw_median.toFixed(3) + '×') + '</td></tr>';
+  }).join('');
+  function btRow(name, b, meaning) {
+    return '<tr><td><b>' + name + '</b></td><td class="num">' + b.n + '</td><td class="num"><b>×' + b.median_factor.toFixed(2) + '</b></td>' +
+      '<td class="num">' + Math.round(b.within_2x * 100) + '%</td><td class="num">' + Math.round(b.within_3x * 100) + '%</td><td>' + meaning + '</td></tr>';
+  }
+  $('backtestRows').innerHTML =
+    btRow('Leave-one-out', D.backtest.loo, 'Each token predicted by a curve that never saw it.') +
+    btRow('5-fold cross-validation', D.backtest.cv5, 'Each token predicted by a curve fitted on the other four fifths.') +
+    btRow('70/30 out-of-sample split', D.backtest.oos_split, 'One fixed split: fitted on 70%, tested on the other 30%.') +
+    btRow('Leave-one-out, outliers in', D.backtest.loo_all_clean, 'Same test on all ' + D.curve.clean_n + ' clean comps, the set-aside outliers included.') +
+    btRow('5-fold, outliers in', D.backtest.cv5_all_clean, 'Same cross-validation with the outliers included.') +
+    btRow('Radar-2 rule, leave-one-out', D.backtest.radar2_loo, 'The old shrunk-category-multiple rule, tested the same way on the same comps.');
+  $('gasRows').innerHTML =
+    '<tr><td>Ethereum</td><td class="num"><b>$' + D.gas_usd.ethereum.toFixed(2) + '</b></td></tr>' +
+    '<tr><td>Solana</td><td class="num"><b>$' + D.gas_usd.solana.toFixed(2) + '</b></td></tr>' +
+    '<tr><td>Layer-2s and cheap chains (Arbitrum, Optimism, Base, Linea, Scroll, zkSync Era, Blast, Mantle, Unichain, Ink, Mode, Starknet, Polygon zkEVM, Manta, Fraxtal, Katana, Taiko, Zircuit, Abstract, Soneium, World Chain, Op_Bnb, Arbitrum Nova, Metis, Kroma, Zora, Mint, Lisk, Morph, Boba, Plume, MegaETH, RISE, Fluent, Stable, Tempo, X Layer, Polygon, Celo, xDai, Lens, MetalL2, ApeChain, Reya Network, Degen, Eclipse, Fuel, Zkfair, Silicon zkEVM, KiteAI)</td><td class="num"><b>$' + D.gas_usd.low_cost.toFixed(2) + '</b></td></tr>' +
+    '<tr><td>All other chains</td><td class="num"><b>$' + D.gas_usd.other.toFixed(2) + '</b></td></tr>';
+  $('setAsideRows').innerHTML = D.curve.set_aside.map(function (x) {
+    return '<tr><td><b>' + esc(x.name) + '</b></td><td class="num">' + x.ratio.toFixed(3) + '×</td><td>Multiple outside the band (' + D.curve.band_lo.toFixed(3) + '× to ' + D.curve.band_hi.toFixed(2) + '×): a parent token&rsquo;s market cap on a sub-protocol, or pass-through staked assets counted as TVL.</td></tr>';
+  }).join('');
   $('excludedRows').innerHTML = D.excluded.map(function (x) {
     return '<tr><td><b>' + esc(x.name) + '</b></td><td>' + esc(x.category || '—') + '</td><td class="num">' + money(x.tvl_usd) + '</td><td>' + esc(x.reason) + '</td></tr>';
   }).join('');
+
+  /* ---- size-curve scatter: log TVL against log market cap, kept comps and set-aside, fitted line ---- */
+  (function renderCurve() {
+    var el = $('curveChart');
+    if (!el || !D.curve.points.length) return;
+    var W = 760, H = 400, L = 58, R = 16, T = 14, B = 36;
+    var x0 = Math.log10(5e6), x1 = Math.log10(3e10), y0 = Math.log10(1e5), y1 = Math.log10(3e9);
+    function X(v) { return L + ((Math.log10(v) - x0) / (x1 - x0)) * (W - L - R); }
+    function Y(v) { return T + (1 - (Math.log10(v) - y0) / (y1 - y0)) * (H - T - B); }
+    var s = '';
+    s += '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Market cap against TVL for the traded comparables, with the fitted size curve">';
+    [5e6, 5e7, 5e8, 5e9].forEach(function (t) {
+      s += '<line x1="' + X(t).toFixed(1) + '" y1="' + T + '" x2="' + X(t).toFixed(1) + '" y2="' + (H - B) + '" stroke="#e3e0d5"/>';
+      s += '<text x="' + X(t).toFixed(1) + '" y="' + (H - 12) + '" font-size="11" fill="#5d6b60" text-anchor="middle">' + (t >= 1e9 ? '$' + (t / 1e9) + 'B' : '$' + (t / 1e6) + 'M') + '</text>';
+    });
+    [1e6, 1e7, 1e8, 1e9].forEach(function (m) {
+      s += '<line x1="' + L + '" y1="' + Y(m).toFixed(1) + '" x2="' + (W - R) + '" y2="' + Y(m).toFixed(1) + '" stroke="#e3e0d5"/>';
+      s += '<text x="' + (L - 8) + '" y="' + (Y(m) + 4).toFixed(1) + '" font-size="11" fill="#5d6b60" text-anchor="end">' + (m >= 1e9 ? '$' + (m / 1e9) + 'B' : '$' + (m / 1e6) + 'M') + '</text>';
+    });
+    s += '<text x="' + ((W + L) / 2) + '" y="' + (H - 0) + '" font-size="11" fill="#5d6b60" text-anchor="middle"></text>';
+    var lx0 = 5e6, lx1 = 3e10;
+    var ly0 = Math.pow(10, D.curve.intercept + D.curve.slope * Math.log10(lx0));
+    var ly1 = Math.pow(10, D.curve.intercept + D.curve.slope * Math.log10(lx1));
+    s += '<line x1="' + X(lx0).toFixed(1) + '" y1="' + Y(Math.max(ly0, 1e5)).toFixed(1) + '" x2="' + X(lx1).toFixed(1) + '" y2="' + Y(Math.min(ly1, 3e9)).toFixed(1) + '" stroke="#0a4d36" stroke-width="2"/>';
+    D.curve.points.forEach(function (p) {
+      var cx = X(p.tvl_usd).toFixed(1), cy = Y(Math.max(p.mcap_usd, 1e5)).toFixed(1);
+      if (p.kept) s += '<circle cx="' + cx + '" cy="' + cy + '" r="3.5" fill="#0e6b4a"><title>' + esc(p.name) + '</title></circle>';
+      else s += '<circle cx="' + cx + '" cy="' + cy + '" r="3.5" fill="#f6f4ee" stroke="#8a978d" stroke-width="1.5"><title>' + esc(p.name) + ' (set aside)</title></circle>';
+    });
+    s += '<text x="' + L + '" y="' + (T + 2) + '" font-size="11" fill="#5d6b60">Market cap (log scale)</text>';
+    s += '<text x="' + (W - R) + '" y="' + (H - B - 8) + '" font-size="11" fill="#5d6b60" text-anchor="end">TVL (log scale)</text>';
+    s += '</svg>';
+    s += '<div class="legend"><span><i class="k"></i>Kept comp (' + D.curve.kept_n + ')</span><span><i class="s"></i>Set aside (' + D.curve.set_aside_n + ')</span><span><i class="l"></i>Fitted curve: log&#8321;&#8320;(mcap) = ' + D.curve.intercept.toFixed(2) + ' + ' + D.curve.slope.toFixed(2) + ' &times; log&#8321;&#8320;(TVL)</span></div>';
+    s += '<p class="chart-cap">Each dot is a traded token. The curve runs through the cloud, not through any one dot: the market pays less per TVL dollar as a protocol grows, which is why the biggest pre-token protocols are worth far less than a fixed multiple of their TVL would say.</p>';
+    el.innerHTML = s;
+  })();
 
   /* ---- filtering + sorting ---- */
   function filtered() {
@@ -86,6 +153,7 @@
       tvl: function (a, b) { return b.tvl_usd - a.tvl_usd; },
       growth: function (a, b) { return (b.change_7d || 0) - (a.change_7d || 0); },
       age: function (a, b) { return (b.age_days || 0) - (a.age_days || 0); },
+      farmcost: function (a, b) { return a.farm_cost_usd - b.farm_cost_usd || a.rank - b.rank; },
       name: function (a, b) { return a.name < b.name ? -1 : 1; },
     }[state.sort] || function (a, b) { return a.rank - b.rank; };
     return list.slice().sort(by);
@@ -100,18 +168,20 @@
     $('rowcount').textContent = list.length + ' of ' + D.rows.length + ' rows shown' +
       (state.category ? ' · category: ' + state.category : '') + (state.watchonly ? ' · watchlist only' : '');
     $('boardnote').textContent = 'Pre-token protocols, strongest implied value first. Select a row for its model and farm plan.';
-    if (!list.length) { rowsEl.innerHTML = '<tr><td colspan="8" class="empty">No protocol matches these filters.</td></tr>'; return; }
+    if (!list.length) { rowsEl.innerHTML = '<tr><td colspan="9" class="empty">No protocol matches these filters.</td></tr>'; return; }
     rowsEl.innerHTML = list.map(function (r) {
       var w = Math.max(2, Math.round((r.implied_value_usd / maxImp) * 110));
       var badge = r.rank === 1 ? 'top1' : r.rank <= 3 ? 'top' + r.rank : '';
+      var flag = r.off_watchlist_above_floor ? '<span class="flag">off-watchlist, above floor</span>' : '';
       return '<tr data-slug="' + esc(r.slug) + '"' + (state.sel === r.slug ? ' class="sel"' : '') + '>' +
         '<td class="num"><span class="rankbadge ' + badge + '">' + r.rank + '</span></td>' +
-        '<td><div class="pname">' + esc(r.name) + '</div><div class="psub">' + esc(r.category || 'Uncategorised') + ' on ' + esc(chainsOf(r)) + '</div></td>' +
+        '<td><div class="pname">' + esc(r.name) + flag + '</div><div class="psub">' + esc(r.category || 'Uncategorised') + ' on ' + esc(chainsOf(r)) + '</div></td>' +
         '<td class="num">' + money(r.tvl_usd) + '</td>' +
         '<td class="num">' + pct(r.change_7d) + '</td>' +
         '<td class="num">' + ageFmt(r.age_days) + '</td>' +
-        '<td class="num">' + r.comps_multiple.toFixed(2) + '×</td>' +
+        '<td class="num">' + money(r.predicted_mcap_usd) + '</td>' +
         '<td class="num"><span class="bar"><i style="width:' + w + 'px"></i><b>' + money(r.implied_value_usd) + '</b></span></td>' +
+        '<td class="num">' + money2(r.farm_cost_usd) + '</td>' +
         '<td class="num"><span class="pill pre">● no token</span></td></tr>';
     }).join('');
   }
@@ -128,6 +198,7 @@
         '<td class="num"><span class="dim">—</span></td>' +
         '<td class="num">' + (r.mcap_tvl === null ? '—' : r.mcap_tvl.toFixed(2) + '×') + '</td>' +
         '<td class="num"><span class="bar"><b>' + money(r.mcap_usd || 0) + '</b></span></td>' +
+        '<td class="num"><span class="dim">—</span></td>' +
         '<td class="num"><span class="pill live">● trades</span></td></tr>';
     }).join('');
   }
@@ -150,28 +221,32 @@
     var step2 = Math.round(step1 * r.growth_multiplier);
     var step3 = Math.round(step2 * r.maturity_multiplier);
     var step4 = Math.round(step3 * r.breadth_multiplier);
-    var comp = null;
-    D.comps.forEach(function (c) { if (c.category === r.category) comp = c; });
+    var flagNote = r.off_watchlist_above_floor
+      ? '<p class="note"><b>Off-watchlist, above floor.</b> This protocol passes every check the snapshot can show, yet the house watchlist leaves it out. The house&rsquo;s rule also uses DefiLlama&rsquo;s parent-protocol field, which the snapshot does not carry, so the visible record can neither confirm nor deny a parent. It is ranked on the visible record; weigh it accordingly.</p>'
+      : '';
     detailEl.innerHTML =
       '<div class="d-kicker"><span>Rank ' + r.rank + ' of ' + D.rows.length + '</span><button class="d-close" type="button" id="dClose">Close</button></div>' +
       '<h2>' + esc(r.name) + '</h2>' +
       '<p class="d-sub">' + esc(r.category || 'Uncategorised') + ' on ' + esc(r.chains.join(', ')) + '</p>' +
+      flagNote +
       '<h3>Implied value</h3>' +
       '<div class="kv"><span>TVL</span><b>' + moneyFull(r.tvl_usd) + '</b></div>' +
-      '<div class="kv"><span>Comps multiple (' + esc(r.category || 'no category') + ', ' + r.category_comps_n + ' live comps)</span><b>' + r.comps_multiple.toFixed(3) + '×</b></div>' +
-      '<div class="kv"><span>Base value (TVL × multiple)</span><b>' + moneyFull(step1) + '</b></div>' +
+      '<div class="kv"><span>Curve value (fitted: log&#8321;&#8320;(mcap) = ' + D.curve.intercept.toFixed(2) + ' + ' + D.curve.slope.toFixed(2) + ' &times; log&#8321;&#8320;(TVL))</span><b>' + moneyFull(step1) + '</b></div>' +
       '<div class="kv"><span>Seven-day growth (' + (r.change_7d === null ? 'not reported, taken as 0' : growthPct.toFixed(2) + '%') + ')</span><b>× ' + r.growth_multiplier.toFixed(4) + '</b></div>' +
       '<div class="kv"><span>Age with no token (' + (r.age_days === null ? 'unknown, taken as 365 days' : r.age_days + ' days') + ')</span><b>× ' + r.maturity_multiplier.toFixed(4) + '</b></div>' +
       '<div class="kv"><span>Chain breadth (' + r.chains.length + ' chain' + (r.chains.length === 1 ? '' : 's') + ')</span><b>× ' + r.breadth_multiplier.toFixed(4) + '</b></div>' +
       '<div class="kv total"><span>Implied value</span><b>' + moneyFull(r.implied_value_usd) + '</b></div>' +
-      '<div class="math">' + moneyFull(r.tvl_usd) + ' × ' + r.comps_multiple.toFixed(3) + ' = <b>' + moneyFull(step1) + '</b><br>' +
+      '<div class="math">curve(' + moneyFull(r.tvl_usd) + ') = <b>' + moneyFull(step1) + '</b><br>' +
       moneyFull(step1) + ' × ' + r.growth_multiplier.toFixed(6) + ' = <b>' + moneyFull(step2) + '</b><br>' +
       moneyFull(step2) + ' × ' + r.maturity_multiplier.toFixed(6) + ' = <b>' + moneyFull(step3) + '</b><br>' +
       moneyFull(step3) + ' × ' + r.breadth_multiplier.toFixed(6) + ' = <b>' + moneyFull(step4) + '</b></div>' +
-      '<p class="note">Why rank ' + r.rank + ': ' + esc(r.name) + ' records no token and carries ' + money(r.tvl_usd) + ' of TVL' +
-      (comp ? ', and live ' + esc(r.category) + ' protocols trade at a median ' + comp.raw_median.toFixed(3) + '× TVL (' + comp.comps_n + ' comps), shrunk to ' + r.comps_multiple.toFixed(3) + '×' : ', priced off the global median multiple') +
-      '. The page recomputes this row as ' + money(r.implied_value_usd) + ', the same number board.json carries. This is an estimate, not a price.</p>' +
-      '<h3>Farm plan</h3>' +
+      '<p class="note">Why rank ' + r.rank + ': ' + esc(r.name) + ' records no token and carries ' + money(r.tvl_usd) + ' of TVL, and the fitted curve prices that TVL at ' + money(r.predicted_mcap_usd) + ' from ' + D.curve.kept_n + ' traded comps. The page recomputes this row as ' + money(r.implied_value_usd) + ', the same number board.json carries. The curve&rsquo;s leave-one-out backtest says its typical prediction is off by &times;' + D.backtest.loo.median_factor.toFixed(2) + ', so read this as an order of magnitude, not a price.</p>' +
+      '<h3>Farm plan &mdash; net ' + money2(r.farm_cost_usd) + '</h3>' +
+      '<div class="kv"><span>Net farm cost (gas + fees)</span><b>' + money2(r.farm_cost_usd) + '</b></div>' +
+      '<div class="kv"><span>Gas, at the assumed per-transaction prices</span><b>' + money2(r.farm_gas_usd) + '</b></div>' +
+      '<div class="kv"><span>Fees the actions charge</span><b>' + money2(r.farm_fees_usd) + '</b></div>' +
+      '<div class="kv"><span>Capital deployed (returned on exit)</span><b>' + money2(r.farm_capital_usd) + '</b></div>' +
+      '<div class="kv"><span>Cost per $1M of implied value</span><b>' + money2((r.farm_cost_usd / r.implied_value_usd) * 1000000) + '</b></div>' +
       '<ol class="steps">' + r.farm_steps.map(function (s) {
         var m = s.match(/^(.*?) Cost: (.*?) Time: (.*?)\.?$/);
         if (!m) return '<li>' + esc(s) + '</li>';
