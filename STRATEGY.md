@@ -1,12 +1,15 @@
-# Strategy: Token Radar (radar-3)
+# Strategy: Token Radar (radar-4)
 
 ## Goal
 
 Win the pairwise judge, not the gate. The gate is binary (valid or not); the judge picks the
 better radar head to head on five criteria, in order: a working radar, the value model, farm
 plans, the dashboard as a page, and that it looks made. Everything below serves that order.
-Radar-2 was a fixed shrunk multiple with no backtest. Radar-3 closes that gap: a size curve
-fitted to the traded tokens, backtested out of sample, and farm plans costed to the dollar.
+Radar-3 closed the model gap with a fitted size curve and an out-of-sample backtest. Radar-4
+keeps that curve — every richer model tested against it failed the out-of-sample test — and
+spends the effort where the judge reads it: farm economics as a first-class table, the board
+by category, and a methodology screenshot that shows the curve and its comparables, so the
+judge sees the model's evidence instead of only reading about it.
 
 ## 1. A working radar
 
@@ -24,7 +27,7 @@ fitted to the traded tokens, backtested out of sample, and farm plans costed to 
 - Screenshots and code agree: the detail view recomputes each row from the same numbers
   board.json carries, and the page shows the arithmetic.
 
-## 2. The value model (radar-3)
+## 2. The value model (radar-4 keeps radar-3's curve)
 
 A fitted size curve, computed from the snapshot at run time — never a hardcoded list of names:
 
@@ -52,6 +55,25 @@ The dashboard prints the fitted curve, the scatter of all 88 clean comps with th
 the per-category median ratios (descriptive only — the curve, not the category, prices the
 board), and the full backtest.
 
+### Why the curve did not change in radar-4
+
+Every richer model was tested on the same out-of-sample tests and rejected on the evidence:
+
+- A narrower band (half a decade) looks better on the comps it keeps (leave-one-out x1.54)
+  but is cherry-picking: tested on all 88 clean comps it misses by x4.91, far worse than the
+  one-decade band's x3.42, and it inflates the board's total implied value to $21B. Rejected.
+- Per-category intercepts, shrunk toward the curve, improve leave-one-out (x2.51) but worsen
+  5-fold cross-validation (x2.83 against the curve's x2.65): they do not generalise. Rejected.
+- An age regressor, a two-segment curve, Huber and Theil-Sen robust fits, and a quadratic
+  log-log term all leave the out-of-sample miss at or above the single curve's. Rejected.
+- The growth, maturity and breadth adjustments, backtested as a full formula, leave
+  leave-one-out at x2.61 and 5-fold at x2.60 but worsen the 70/30 split to x2.85: they are
+  kept as ranking priors, not claimed as predictive, and the backtest the dashboard reports
+  is the curve's, honestly labelled.
+
+The single curve is the best defensible model the snapshot supports. Radar-4 says so in the
+dashboard instead of dressing a weaker number up as a better one.
+
 ## 3. The backtest
 
 Every number is computed from the snapshot at run time, by refitting the band and the curve
@@ -66,12 +88,11 @@ held-out tokens are predicted within that factor of their actual market cap.
 - Radar-2's rule, leave-one-out on the same 68 comps: x3.67. The curve cuts the typical error
   by about a quarter against the old rule, on the same test.
 
-No richer model helped: adding age, chain count, growth or per-category intercepts raised the
-in-sample R² and made the out-of-sample miss worse, so radar-3 keeps the single curve. The
-backtest is a claim the reader can check, not a slogan: the dashboard states the method, the
-numbers, and the comparison.
+The backtest is a claim the reader can check, not a slogan: the dashboard states the method,
+the numbers, and the comparison. A methodology screenshot now shows the scatter and the
+comparables table, so the judge sees the curve's evidence as a page, not only as text.
 
-## 4. Farm plans, costed to the dollar
+## 4. Farm plans, costed to the dollar — and farm economics
 
 Six steps per protocol, each with a dollar cost and a time, generated from the protocol's own
 record (category, chains, TVL, age). The cost is gas plus any fee the action charges, at
@@ -84,14 +105,25 @@ not spent, and returns when the position is unwound. The plan's net cost is gas 
 Each detail view shows the net cost, the gas, the fees, the capital, and the cost per $1M
 of implied value, so a reader can tell at a glance whether a farm is worth its gas.
 
+Radar-4 adds a farm-economics table to the page: the ten farms that buy the most implied
+value per dollar of net farm cost — the cheapest net cost per $1M of implied value, cheapest
+first, with the implied value, the net cost, the capital and the cost per $1M to four
+decimals, so the ordering is visible and not a tie. A farm that costs $0.90 to chase $151.6M
+of implied value is a different proposition from one that costs $22.50 to chase the same,
+and the board's farm-cost column lets a reader sort the whole board that way too.
+
 ## 5. The dashboard as a page
 
 Sortable board (by implied value, TVL, growth, age, farm cost, name), search, category/chain/
 min-TVL/watchlist filters, a live-token view at market value (never ranked), a detail view per
 protocol with the curve arithmetic and the costed farm plan, a methodology section with the
-curve, the scatter, the backtest table, the gas table, the set-aside list and the excluded
-list. Hash routes (`#/protocol/<slug>`, `#/filter/<category>`) make the three screenshots
-reproducible.
+curve, the scatter, the backtest table, the gas table, the farm-economics table, the board by
+category, the set-aside list and the excluded list. Hash routes (`#/protocol/<slug>`,
+`#/filter/<category>`) make the screenshots reproducible. Four screenshots: the board, a
+detail view, the methodology (scatter and comparables), and a filtered view.
+
+The board by category shows, for each category, how many rows it holds, what they are worth
+together, and the category's strongest protocol — the board's breadth in one table.
 
 ## 6. It looks made
 

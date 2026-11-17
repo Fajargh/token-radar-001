@@ -91,6 +91,15 @@
     '<tr><td>Solana</td><td class="num"><b>$' + D.gas_usd.solana.toFixed(2) + '</b></td></tr>' +
     '<tr><td>Layer-2s and cheap chains (Arbitrum, Optimism, Base, Linea, Scroll, zkSync Era, Blast, Mantle, Unichain, Ink, Mode, Starknet, Polygon zkEVM, Manta, Fraxtal, Katana, Taiko, Zircuit, Abstract, Soneium, World Chain, Op_Bnb, Arbitrum Nova, Metis, Kroma, Zora, Mint, Lisk, Morph, Boba, Plume, MegaETH, RISE, Fluent, Stable, Tempo, X Layer, Polygon, Celo, xDai, Lens, MetalL2, ApeChain, Reya Network, Degen, Eclipse, Fuel, Zkfair, Silicon zkEVM, KiteAI)</td><td class="num"><b>$' + D.gas_usd.low_cost.toFixed(2) + '</b></td></tr>' +
     '<tr><td>All other chains</td><td class="num"><b>$' + D.gas_usd.other.toFixed(2) + '</b></td></tr>';
+  $('farmValueRows').innerHTML = D.farm_value.map(function (f) {
+    return '<tr><td class="num"><b>' + f.rank + '</b></td><td><b>' + esc(f.name) + '</b></td><td class="num">' + money(f.implied_value_usd) + '</td>' +
+      '<td class="num">' + money2(f.farm_cost_usd) + '</td><td class="num">' + money2(f.farm_capital_usd) + '</td>' +
+      '<td class="num"><b>$' + f.cost_per_1m_usd.toFixed(4) + '</b></td></tr>';
+  }).join('');
+  $('byCategoryRows').innerHTML = D.by_category.map(function (c) {
+    return '<tr><td>' + esc(c.category) + '</td><td class="num">' + c.rows + '</td><td class="num">' + money(c.total_implied_usd) + '</td>' +
+      '<td><b>' + esc(c.top_name) + '</b></td><td class="num">' + money(c.top_implied_usd) + '</td></tr>';
+  }).join('');
   $('setAsideRows').innerHTML = D.curve.set_aside.map(function (x) {
     return '<tr><td><b>' + esc(x.name) + '</b></td><td class="num">' + x.ratio.toFixed(3) + '×</td><td>Multiple outside the band (' + D.curve.band_lo.toFixed(3) + '× to ' + D.curve.band_hi.toFixed(2) + '×): a parent token&rsquo;s market cap on a sub-protocol, or pass-through staked assets counted as TVL.</td></tr>';
   }).join('');

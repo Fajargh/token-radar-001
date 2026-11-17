@@ -107,7 +107,7 @@ export const MODEL: ModelConstants = {
 };
 
 /** The model's version label: the dashboard names it. */
-export const MODEL_VERSION = 'radar-3';
+export const MODEL_VERSION = 'radar-4';
 
 /** How many live-token protocols the Live token view carries, by market cap. */
 export const LIVE_ROWS = 24;
@@ -216,6 +216,26 @@ export interface CompsRow {
   raw_median: number | null;
 }
 
+/** One farm by value for money: the cheapest net farm cost per $1M of implied value. */
+export interface FarmValueRow {
+  rank: number;
+  slug: string;
+  name: string;
+  implied_value_usd: number;
+  farm_cost_usd: number;
+  farm_capital_usd: number;
+  cost_per_1m_usd: number;
+}
+
+/** One category's share of the board: how many rows it holds and what they are worth together. */
+export interface CategorySummaryRow {
+  category: string;
+  rows: number;
+  total_implied_usd: number;
+  top_name: string;
+  top_implied_usd: number;
+}
+
 /** A protocol the board deliberately does not rank, with the reason why. */
 export interface ExcludedRow {
   slug: string;
@@ -282,6 +302,8 @@ export interface RadarData {
   rows: RadarRow[];
   live: LiveRow[];
   comps: CompsRow[];
+  farm_value: FarmValueRow[];
+  by_category: CategorySummaryRow[];
   excluded: ExcludedRow[];
   watchlist: string[];
   curve: CurveData;
@@ -572,6 +594,45 @@ export function compsTable(snapshot: Snapshot, model: ModelConstants = MODEL): C
   return [...byCategory.entries()]
     .map(([category, ratios]) => ({ category, comps_n: ratios.length, raw_median: round4(median(ratios)) }))
     .sort((a, b) => (a.category < b.category ? -1 : a.category > b.category ? 1 : 0));
+}
+
+/** The ten farms that buy the most implied value per dollar of net farm cost: the cheapest
+ * net cost per $1M of implied value, cheapest first. A farm's net cost is gas plus fees; the
+ * capital is deployed, not spent, so it is shown beside the cost, never inside it. */
+export function farmValueTable(board: BoardRow[]): FarmValueRow[] {
+  return [...board]
+    .map((r) => ({
+      slug: r.slug,
+      name: r.name,
+      implied_value_usd: r.implied_value_usd,
+      farm_cost_usd: r.farm_cost_usd,
+      farm_capital_usd: r.farm_capital_usd,
+      cost_per_1m_usd: (r.farm_cost_usd / r.implied_value_usd) * 1_000_000,
+    }))
+    .sort((a, b) => a.cost_per_1m_usd - b.cost_per_1m_usd || b.implied_value_usd - a.implied_value_usd)
+    .slice(0, 10)
+    .map((r, i) => ({ rank: i + 1, ...r, cost_per_1m_usd: round4(r.cost_per_1m_usd) }));
+}
+
+/** The board by category: how many rows each category holds, what they are worth together, and
+ * the category's strongest protocol. The board's breadth, in one table. */
+export function categorySummary(board: BoardRow[]): CategorySummaryRow[] {
+  const byCategory = new Map<string, BoardRow[]>();
+  for (const r of board) {
+    const key = r.category ?? 'Uncategorised';
+    const list = byCategory.get(key) ?? [];
+    list.push(r);
+    byCategory.set(key, list);
+  }
+  return [...byCategory.entries()]
+    .map(([category, rows]) => ({
+      category,
+      rows: rows.length,
+      total_implied_usd: rows.reduce((s, r) => s + r.implied_value_usd, 0),
+      top_name: rows[0]!.name,
+      top_implied_usd: rows[0]!.implied_value_usd,
+    }))
+    .sort((a, b) => b.total_implied_usd - a.total_implied_usd);
 }
 
 /* ---- implied value, the board, and the costed farm plans ---- */
@@ -937,6 +998,8 @@ export function buildRadar(snapshot: Snapshot, model: ModelConstants = MODEL): {
     rows: board.map(radarRow),
     live,
     comps: compsTable(snapshot, model),
+    farm_value: farmValueTable(board),
+    by_category: categorySummary(board),
     excluded,
     watchlist: snapshot.watchlist,
     curve: curveData(snapshot, model),

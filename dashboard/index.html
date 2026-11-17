@@ -10,7 +10,7 @@
 <header class="topbar">
   <div class="wrap topbar-in">
     <div class="brand"><span class="dot" aria-hidden="true"></span> Token Radar</div>
-    <div class="topmeta" id="topmeta">Snapshot 2026-11-14 &middot; DefiLlama protocol index &middot; model radar-3</div>
+    <div class="topmeta" id="topmeta">Snapshot 2026-11-14 &middot; DefiLlama protocol index &middot; model radar-4</div>
   </div>
 </header>
 
@@ -152,6 +152,21 @@
       </table>
     </div>
 
+    <h3>Farm economics: the cheapest farms for the value</h3>
+    <p>A farm is worth its gas when the implied value it chases is large next to what the farm
+    costs. The table below ranks the ten farms that buy the most implied value per dollar of
+    net farm cost &mdash; the cheapest net cost per $1M of implied value, cheapest first. The
+    capital is deployed, not spent, so it is shown beside the cost, never inside it. A farm
+    that costs $0.90 to chase $150M of implied value is a different proposition from one that
+    costs $22.50 to chase the same, and the board&rsquo;s farm-cost column lets a reader sort
+    the whole board that way too.</p>
+    <div class="tablewrap">
+      <table id="farmvalue">
+        <thead><tr><th class="num">Farm rank</th><th>Protocol</th><th class="num">Implied value</th><th class="num">Net farm cost</th><th class="num">Capital</th><th class="num">Cost per $1M</th></tr></thead>
+        <tbody id="farmValueRows"></tbody>
+      </table>
+    </div>
+
     <h3>Who is on the board, and who is not</h3>
     <p>On the board: the 40 watchlist protocols, the 138 pre-token protocols below the $50M floor
     that pass the exclusion rule, and 20 protocols above the floor that pass every check the
@@ -161,6 +176,12 @@
     visible record and flagged <em>off-watchlist, above floor</em> on their rows, so a reader
     can weigh them. The field guide says a protocol the list leaves out is no worse a subject
     than one on it.</p>
+    <div class="tablewrap">
+      <table id="bycategory">
+        <thead><tr><th>Category</th><th class="num">Rows</th><th class="num">Total implied value</th><th>Strongest protocol</th><th class="num">Its implied value</th></tr></thead>
+        <tbody id="byCategoryRows"></tbody>
+      </table>
+    </div>
     <div class="tablewrap">
       <table id="setaside">
         <thead><tr><th>Set aside from the curve</th><th class="num">mcap/TVL</th><th>Why</th></tr></thead>
@@ -182,14 +203,14 @@
     every implied value as an order of magnitude, not a quote. Farming costs gas and carries
     smart-contract risk; never pay to claim an airdrop, and claim only from the link the
     protocol itself publishes. Snapshot: DefiLlama <em>api.llama.fi/protocols</em>, fetched
-    2026-11-14. Model radar-3.</p>
+    2026-11-14. Model radar-4.</p>
   </section>
 </main>
 
 <aside id="detail" class="detail" aria-hidden="true" aria-label="Protocol detail"></aside>
 
 <footer class="wrap foot">
-  <p>Token Radar &middot; snapshot 2026-11-14 &middot; model radar-3 &middot; built for make.fun
+  <p>Token Radar &middot; snapshot 2026-11-14 &middot; model radar-4 &middot; built for make.fun
   &ldquo;Build the best token launch radar&rdquo; &middot; data: DefiLlama public API.</p>
 </footer>
 
