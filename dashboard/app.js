@@ -51,7 +51,7 @@
     return '<div class="kpi' + (hot ? ' hot' : '') + '"><div class="k-label">' + label + '</div><div class="k-value">' + value + '</div><div class="k-sub">' + sub + '</div></div>';
   }
   $('kpis').innerHTML =
-    kpi('Watchlist covered', D.watchlist_size + ' / ' + D.watchlist_size, 'every protocol on the floor', true) +
+    kpi('Out-of-sample miss', '×' + D.backtest.oos_split.median_factor.toFixed(2), '70/30 split; the old rule misses ×' + D.backtest.radar2_loo.median_factor.toFixed(2), true) +
     kpi('Board rows', String(D.board_size), D.early_size + ' early rows below the floor', false) +
     kpi('Total implied value', money(totalImplied), 'sum of all ' + D.board_size + ' rows', false) +
     kpi('Top implied value', money(top ? top.implied_value_usd : 0), top ? esc(top.name) : '', false) +

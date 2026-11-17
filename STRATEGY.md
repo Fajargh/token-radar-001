@@ -1,4 +1,4 @@
-# Strategy: Token Radar (radar-3)
+# Strategy: Token Radar (radar-5)
 
 ## Goal
 
@@ -7,6 +7,10 @@ better radar head to head on five criteria, in order: a working radar, the value
 plans, the dashboard as a page, and that it looks made. Everything below serves that order.
 Radar-2 was a fixed shrunk multiple with no backtest. Radar-3 closes that gap: a size curve
 fitted to the traded tokens, backtested out of sample, and farm plans costed to the dollar.
+Radar-5 keeps radar-3's curve, backtest, board and farm plans unchanged and makes one
+dashboard change: the hero's first KPI now shows the out-of-sample miss (x2.59, 70/30
+split) against the old rule's x3.67, instead of the watchlist count — a gate checkbox every
+valid entry satisfies — so the model's held-out evidence leads the page.
 
 ## 1. A working radar
 
@@ -91,7 +95,8 @@ min-TVL/watchlist filters, a live-token view at market value (never ranked), a d
 protocol with the curve arithmetic and the costed farm plan, a methodology section with the
 curve, the scatter, the backtest table, the gas table, the set-aside list and the excluded
 list. Hash routes (`#/protocol/<slug>`, `#/filter/<category>`) make the three screenshots
-reproducible.
+reproducible. The hero's first KPI is the out-of-sample miss (70/30 split, x2.59) against
+the old rule (x3.67): the model's held-out evidence, not a gate checkbox, leads the page.
 
 ## 6. It looks made
 
